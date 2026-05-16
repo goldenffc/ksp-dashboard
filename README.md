@@ -20,7 +20,7 @@ It supports both **stock KSP** and **RP-1/RO** installs, with automatic fuel det
 - **Engine indicator panel** — top-down engine layout showing firing state in real time, updates on staging automatically
 - **Fuel gauge** — stage-aware fuel tracking using engine decouple stage logic. Supports stock LiquidFuel/SolidFuel and a wide range of RealFuels propellants including RP-1, LqdOxygen, LqdHydrogen, LqdMethane, UDMH, NTO, PBAN, PSPC, and many more
 - **Automated event banners** — detects and announces LIFTOFF, MAX-Q, BOOSTER SEP, MECO, STAGE SEP, SES-1, SECO, and ORBIT ACHIEVED
-- **Camera feed viewer** — integrates with JRTI (Just Reachable Things Interface) and HullCam for live in-game camera feeds with multi-cam layout support (1/2/3/4 feeds), auto-scroll, LOS detection, and named camera slots
+- **Camera feed viewer** — integrates with JRTI (Just Read The Instructions) and HullCam for live in-game camera feeds with multi-cam layout support (1/2/3/4 feeds), auto-scroll, LOS detection, and named camera slots
 - **OBS integration** — optional recording control and timer via OBS WebSocket
 - **Clean view mode** — hides UI controls for a broadcast-ready view, togglable independently of OBS recording
 - **Warp rate indicator** — shows physics rate, highlights yellow when the game is lagging behind real time
