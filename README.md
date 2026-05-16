@@ -143,7 +143,10 @@ Clicking the **VIEW** button in the top-right strip hides UI controls (throttle 
 - **Camera IDs reset on KSP restart** — JRTI assigns new camera IDs each session. Use AUTO-DETECT after every KSP launch.
 
 - **kRPC server must be started before the dashboard** — if KSP is not running or the kRPC server is not open, the dashboard will show as disconnected and retry every 3 seconds automatically.
-
+  
+-  **SOI changes (e.g. Mun, Minmus)** — transitioning between spheres of influence is untested. The dashboard attempts to handle SOI changes by rebuilding flight streams automatically, but behaviour is not guaranteed.
+-  **Reverting to launch** — reverting to launch will freeze all telemetry. Restarting the dashboard server resolves this.
+  
 - **MET clock** — there is a brief delay at the very start of a new connection while the fuel name cache is built for the first time. This is normal and only happens once per connection.
 
 ---
