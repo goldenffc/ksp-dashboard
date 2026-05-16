@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>MISSION LIVE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;600;700&family=Barlow:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+
+    /* ── Fonts ─────────────────────────────────────────────────────────── */
+    :root {
+      --white:   #ffffff;
+      --dim:     rgba(255,255,255,0.55);
+      --accent:  #005288;   /* SpaceX blue */
+      --accent2: #00a8e0;
+      --danger:  #e8312a;
+      --font:    'Barlow Condensed', sans-serif;
+      --font-b:  'Barlow', sans-serif;
+    }
+
+    /* ── Feed container ─────────────────────────────────────────────────── */
+    .feed-wrap {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+    }
+
+    /* ── Feed grid ──────────────────────────────────────────────────────── */
+    .feed-grid {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      background: #000;
+    }
+    .feed-grid.layout-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+    .feed-grid.layout-2 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
+    .feed-grid.layout-3 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+    .feed-grid.layout-3 .feed-cell:last-child { grid-column: 1 / -1; }
+    .feed-grid.layout-4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+
+    .feed-cell {
+      position: relative;
+      overflow: hidden;
+      background: #000;
+    }
+    .feed-cell img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .feed-cell-label {
+      position: absolute;
+      top: 6px; left: 8px;
+      font-family: var(--font);
+      font-size: 9px;
+      letter-spacing: 3px;
+      color: rgba(255,255,255,0.55);
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .feed-grid.layout-1 .feed-cell-label { display: none; }
+
+    .feed-cell-los {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      font-family: var(--font);
+      font-size: 9px;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.25);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    .feed-cell-los.hidden { display: none; }
+
+    .feed-cell-live {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #2ecc71;
+      box-shadow: 0 0 6px #2ecc71;
+      animation: pulse 1.4s ease infinite;
+      pointer-events: none;
+    }
+    .feed-cell-live.hidden { display: none; }
+    .feed-grid.layout-1 .feed-cell-live { display: none; }
+
+    /* Gradient overlays so text is readable */
+    .grad-bottom {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 35%;
+      background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .grad-top {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 15%;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    /* ── Top bar ────────────────────────────────────────────────────────── */
+    .top-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .mission-id {
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--white);
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--white);
+    }
+    .live-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 6px var(--danger);
+      animation: pulse 1.4s ease infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    .mission-clock-top {
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 300;
+      letter-spacing: 3px;
+      color: var(--white);
+      opacity: 0.8;
+    }
+
+    /* ── Bottom telemetry bar ───────────────────────────────────────────── */
+    .telem-bar {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 0 24px 20px;
+    }
+
+    /* Divider line */
+    .telem-line {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0.3) 20%,
+        rgba(255,255,255,0.3) 80%,
+        transparent 100%
+      );
+      margin-bottom: 14px;
+    }
+
+    .telem-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    /* Left block: speed + altitude */
+    .telem-left {
+      display: flex;
+      gap: 40px;
+    }
+
+    .telem-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .telem-label {
+      font-family: var(--font);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .telem-value {
+      font-family: var(--font);
+      font-size: 38px;
+      font-weight: 300;
+      color: var(--white);
+      line-height: 1;
+      letter-spacing: 1px;
+    }
+
+    .telem-unit {
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 3px;
+      color: var(--dim);
+      margin-top: 1px;
+    }
+
+    /* Center: mission name + vessel */
+    .telem-center {
+      text-align: center;
+      flex: 1;
+    }
+
+    .mission-name {
+      font-family: var(--font);
+      font-size: 42px;
+      font-weight: 300;
+      letter-spacing: 5px;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+
+    .vessel-sub {
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 4px;
+      color: var(--dim);
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+
+    /* Right block: engine panel + apoapsis + periapsis */
+    .telem-right {
+      display: flex;
+      gap: 40px;
+      text-align: right;
+      flex-shrink: 0;
+      width: 340px;
+    }
+
+    .telem-right .telem-block {
+      min-width: 70px;
+    }
+
+    /* ── Event banner ───────────────────────────────────────────────────── */
+    .event-banner {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      width: max-content;
+      max-width: 520px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 0 28px;
+      background: rgba(255,255,255,0.06);
+      border-top: 1px solid rgba(255,255,255,0.12);
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+      transform: translateX(-50%) translateY(40px);
+      opacity: 0;
+      transition: transform 0.6s cubic-bezier(0.22,1,0.36,1), opacity 0.5s ease;
+      pointer-events: none;
+      z-index: 50;
+    }
+    .event-banner.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    .event-banner-label {
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: var(--white);
+      text-transform: uppercase;
+    }
+    .event-banner-label.maxq { color: #ffcc00; }
+    .event-banner-time {
+      font-family: var(--font);
+      font-size: 11px;
+      font-weight: 300;
+      letter-spacing: 4px;
+      color: rgba(255,255,255,0.55);
+    }
+
+    /* ── Stage indicator ────────────────────────────────────────────────── */
+    .stage-info {
+      position: absolute;
+      right: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: right;
+    }
+
+    .stage-label {
+      font-family: var(--font);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .stage-value {
+      font-family: var(--font);
+      font-size: 20px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: 2px;
+    }
+
+    /* ── Throttle bar ───────────────────────────────────────────────────── */
+    .throttle-wrap {
+      position: absolute;
+      left: 24px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      align-items: flex-start;
+    }
+
+    .throttle-label {
+      font-family: var(--font);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 4px;
+      color: var(--dim);
+      text-transform: uppercase;
+    }
+
+    .throttle-track {
+      width: 3px;
+      height: 80px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    .throttle-fill {
+      width: 100%;
+      background: var(--white);
+      border-radius: 2px;
+      transition: height 0.2s ease;
+    }
+
+    .throttle-pct {
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: 1px;
+    }
+
+    /* ── Fuel bar ───────────────────────────────────────────────────────── */
+    .fuel-bar-wrap { margin-top: 14px; }
+    .fuel-track {
+      width: 60px; height: 3px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px; margin-top: 4px; overflow: hidden;
+    }
+    .fuel-fill {
+      height: 100%; background: #fff;
+      border-radius: 2px; transition: width 0.3s ease;
+    }
+    .fuel-pct {
+      font-family: var(--font); font-size: 11px; font-weight: 600;
+      color: var(--white); letter-spacing: 1px; margin-top: 3px;
+    }
+
+    /* ── Camera switcher ────────────────────────────────────────────────── */
+    .cam-switcher-wrap {
+      position: absolute;
+      bottom: 185px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    .auto-scroll-toggle {
+      font-family: var(--font); font-size: 9px; font-weight: 700;
+      letter-spacing: 3px; padding: 4px 10px;
+      background: transparent; border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.35); cursor: pointer; transition: all 0.2s;
+    }
+    .auto-scroll-toggle:hover { border-color: rgba(255,255,255,0.5); color: var(--white); }
+    .auto-scroll-toggle.active { border-color: rgba(255,255,255,0.6); color: var(--white); background: rgba(255,255,255,0.08); }
+    .cam-switcher {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .cam-btn {
+      width: 80px;
+      height: 50px;
+      border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(0,0,0,0.5);
+      cursor: pointer;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .cam-btn:hover { border-color: rgba(255,255,255,0.6); }
+    .cam-btn.active { border-color: var(--white); border-width: 2px; }
+    .cam-btn.cam-btn-los { opacity: 0.3; }
+
+    .cam-btn img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.7;
+    }
+    .cam-btn.active img { opacity: 1; }
+
+    .cam-btn-label {
+      position: absolute;
+      bottom: 3px;
+      left: 4px;
+      font-family: var(--font);
+      font-size: 8px;
+      letter-spacing: 2px;
+      color: var(--white);
+      font-weight: 600;
+    }
+
+
+
+    /* ── Warp rate ──────────────────────────────────────────────────────── */
+    .warp-badge {
+      position: absolute;
+      left: 24px;
+      top: calc(50% + 115px);
+      text-align: left;
+    }
+    .warp-badge .telem-label { font-size: 9px; }
+    .warp-badge .warp-value {
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      color: var(--white);
+      opacity: 0.75;
+    }
+    .warp-badge.lagging .warp-value { color: #ffcc00; opacity: 1; }
+
+    /* ── TWR ────────────────────────────────────────────────────────────── */
+    .twr-badge {
+      position: absolute;
+      top: 60px;
+      right: 24px;
+      text-align: right;
+    }
+    .twr-badge .telem-label { text-align: right; }
+    .twr-badge .telem-value { font-size: 22px; }
+
+    /* ── Circular gauges ────────────────────────────────────────────────── */
+    .telem-block canvas { display: block; }
+
+    /* ── Settings button (legacy, kept for compat) ───────────────────────── */
+    .settings-btn {
+      background: none; border: none;
+      font-size: 17px; cursor: pointer;
+      color: rgba(255,255,255,0.35);
+      transition: color 0.2s;
+    }
+    .settings-btn:hover { color: rgba(255,255,255,0.9); }
+
+    /* ── Camera settings overlay ─────────────────────────────────────────── */
+    .cam-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.90);
+      z-index: 500;
+      display: flex; align-items: flex-start; justify-content: center;
+      overflow-y: auto; padding: 24px 0;
+    }
+    .cam-overlay.hidden { display: none; }
+    .cam-settings-box {
+      background: #090909;
+      border: 1px solid rgba(255,255,255,0.14);
+      padding: 36px; width: 420px;
+      flex-shrink: 0;
+    }
+    .cam-settings-title {
+      font-family: var(--font); font-size: 11px; font-weight: 700;
+      letter-spacing: 6px; color: var(--white); margin-bottom: 28px;
+    }
+    .cam-input-row { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; }
+    .cam-input-label {
+      font-family: var(--font); font-size: 9px; letter-spacing: 4px;
+      color: var(--dim); margin-bottom: 5px; font-weight: 600;
+    }
+    .cam-input-field {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; font-family: var(--font); font-size: 14px;
+      padding: 8px 12px; letter-spacing: 2px; width: 100%; outline: none;
+    }
+    .cam-input-field:focus { border-color: rgba(255,255,255,0.45); }
+    .cam-btn-row { display: flex; gap: 12px; }
+    .cam-save-btn {
+      flex: 1; background: var(--white); color: #000;
+      font-family: var(--font); font-size: 11px; font-weight: 700;
+      letter-spacing: 4px; border: none; padding: 10px; cursor: pointer;
+    }
+    .cam-save-btn:hover { background: rgba(255,255,255,0.85); }
+    .cam-detect-btn {
+      flex: 1; background: transparent; color: var(--white);
+      font-family: var(--font); font-size: 11px; font-weight: 600;
+      letter-spacing: 3px; border: 1px solid rgba(255,255,255,0.25);
+      padding: 10px; cursor: pointer;
+    }
+    .cam-detect-btn:hover { border-color: rgba(255,255,255,0.6); }
+    .cam-hint {
+      font-family: var(--font); font-size: 9px; letter-spacing: 2px;
+      color: rgba(255,255,255,0.28); margin-top: 16px; line-height: 1.7;
+    }
+
+    /* ── Layout + mode selectors ─────────────────────────────────────────── */
+    .layout-section { margin-bottom: 24px; }
+    .layout-btn-row { display: flex; gap: 8px; margin-top: 8px; }
+    .layout-btn {
+      flex: 1; background: transparent; color: rgba(255,255,255,0.5);
+      font-family: var(--font); font-size: 11px; font-weight: 600;
+      letter-spacing: 3px; border: 1px solid rgba(255,255,255,0.15);
+      padding: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .layout-btn:hover { border-color: rgba(255,255,255,0.45); color: var(--white); }
+    .layout-btn.active {
+      background: var(--white); color: #000;
+      border-color: var(--white);
+    }
+
+    /* ── Dynamic cam input rows ──────────────────────────────────────────── */
+    .cam-input-row-item { display: flex; flex-direction: column; gap: 5px; }
+    .cam-slot-select {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; font-family: var(--font); font-size: 12px;
+      padding: 8px 4px; letter-spacing: 1px; outline: none;
+      width: 56px; flex-shrink: 0; cursor: pointer;
+    }
+    .cam-slot-select:focus { border-color: rgba(255,255,255,0.45); }
+    .cam-slot-select option { background: #111; }
+    .cam-remove-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6); font-size: 14px; width: 32px; height: 32px;
+      cursor: pointer; font-family: var(--font); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cam-remove-btn:hover { border-color: var(--danger); color: var(--danger); }
+    .cam-auto-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(255,255,255,0.35); font-family: var(--font);
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      width: 32px; height: 32px; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .cam-auto-btn:hover { border-color: rgba(255,255,255,0.5); color: rgba(255,255,255,0.8); }
+    .cam-auto-btn.active { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.6); color: var(--white); }
+    .cam-add-btn {
+      width: 100%; background: transparent;
+      border: 1px dashed rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.45); font-family: var(--font);
+      font-size: 10px; letter-spacing: 4px; font-weight: 600;
+      padding: 8px; cursor: pointer; margin-bottom: 20px;
+    }
+    .cam-add-btn:hover { border-color: rgba(255,255,255,0.5); color: rgba(255,255,255,0.8); }
+
+
+    /* ── Clean recording mode ───────────────────────────────────────────── */
+    .recording-clean .throttle-wrap,
+    .recording-clean .warp-badge,
+    .recording-clean .twr-badge,
+    .recording-clean .cam-switcher-wrap { display: none !important; }
+    .recording-clean .top-bar { background: transparent; }
+    .recording-clean .live-badge,
+    .recording-clean .icon-btn { display: none !important; }
+    .recording-clean .rec-timer { display: none !important; }
+
+    /* Warp rate moves to bottom-right corner next to periapsis during recording */
+    .clean-rate {
+      display: none;
+      position: absolute;
+      bottom: 24px; right: 24px;
+      font-family: var(--font);
+      font-size: 10px; font-weight: 400;
+      letter-spacing: 2px;
+      color: rgba(255,255,255,0.4);
+      pointer-events: none;
+    }
+    .clean-rate.lagging { color: rgba(255,204,0,0.7); }
+    .recording-clean .clean-rate { display: block; }
+
+    /* ── Recording controls ──────────────────────────────────────────────── */
+    .rec-btn {
+      display: flex; align-items: center; gap: 7px;
+      background: none; border: 1px solid rgba(255,255,255,0.18);
+      font-family: var(--font); font-size: 11px; font-weight: 700;
+      letter-spacing: 3px; color: rgba(255,255,255,0.4);
+      padding: 5px 12px; cursor: pointer; transition: all 0.2s;
+    }
+    .rec-btn:hover { border-color: rgba(255,255,255,0.5); color: var(--white); }
+    .rec-btn.active { border-color: var(--danger); color: var(--danger); }
+    .rec-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+    .rec-btn.active .rec-dot { animation: pulse 1.4s ease infinite; }
+    .rec-timer {
+      font-family: var(--font); font-size: 11px; font-weight: 300;
+      letter-spacing: 3px; color: rgba(255,255,255,0.3); min-width: 64px;
+    }
+    .rec-timer.active { color: rgba(255,255,255,0.7); }
+
+    /* ── Top-bar button strip ────────────────────────────────────────────── */
+    .top-right-strip {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .icon-btn {
+      background: none; border: none; font-size: 16px; cursor: pointer;
+      color: rgba(255,255,255,0.35); transition: color 0.2s; padding: 4px 6px;
+    }
+    .icon-btn:hover { color: rgba(255,255,255,0.9); }
+
+    /* ── Clean view button (active state) ──────────────────────────────────── */
+    .clean-btn.active { border-color: rgba(255,255,255,0.6); color: var(--white); background: rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body>
+
+<div class="feed-wrap">
+
+  <!-- ── Feed grid ────────────────────────────────────────────────────── -->
+  <div class="feed-grid layout-1" id="feed-grid"></div>
+
+  <!-- ── Gradients ─────────────────────────────────────────────────────── -->
+  <div class="grad-top"></div>
+  <div class="grad-bottom"></div>
+
+  <!-- ── Camera settings button (now inside top-right strip) ─────────────── -->
+
+  <!-- ── Camera settings overlay ───────────────────────────────────────────── -->
+  <div class="cam-overlay hidden" id="cam-overlay">
+    <div class="cam-settings-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;">
+        <div class="cam-settings-title" style="margin-bottom:0;">CAMERA CONFIGURATION</div>
+        <button onclick="document.getElementById('cam-overlay').classList.add('hidden')"
+                style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:20px;cursor:pointer;line-height:1;padding:0 2px;">×</button>
+      </div>
+      <div class="layout-section">
+        <div class="cam-input-label">LAYOUT</div>
+        <div class="layout-btn-row">
+          <button class="layout-btn" data-layout="1" onclick="setLayout(1)">1 CAM</button>
+          <button class="layout-btn" data-layout="2" onclick="setLayout(2)">2 CAM</button>
+          <button class="layout-btn" data-layout="3" onclick="setLayout(3)">3 CAM</button>
+          <button class="layout-btn" data-layout="4" onclick="setLayout(4)">4 CAM</button>
+        </div>
+      </div>
+      <div class="layout-section">
+        <div class="cam-input-label">SPEED MODE</div>
+        <div class="layout-btn-row">
+          <button class="layout-btn" data-mode="stock" onclick="setSpeedMode('stock')">STOCK</button>
+          <button class="layout-btn" data-mode="rp1"   onclick="setSpeedMode('rp1')">RP-1</button>
+        </div>
+      </div>
+      <div class="layout-section">
+        <div class="cam-input-label">AUTO SCROLL  <span style="opacity:0.4;font-weight:400;letter-spacing:2px;font-size:8px;">(1-CAM MODE ONLY · TOGGLE A ON EACH CAM)</span></div>
+        <div class="layout-btn-row">
+          <button class="layout-btn" data-autoscroll="off" onclick="setAutoScrollMode(false)">OFF</button>
+          <button class="layout-btn" data-autoscroll="on"  onclick="setAutoScrollMode(true)">ON</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
+          <div class="cam-input-label" style="margin:0;white-space:nowrap;">SWITCH EVERY</div>
+          <input class="cam-input-field" id="autoscroll-secs" type="number" min="3" max="600"
+                 style="width:64px;padding:6px 8px;" value="10"/>
+          <div class="cam-input-label" style="margin:0;">SEC</div>
+        </div>
+      </div>
+      <div class="layout-section">
+        <div class="cam-input-label">KEYBOARD CAM HOLD  <span style="opacity:0.4;font-weight:400;letter-spacing:2px;font-size:8px;">(PRESS 1-9 TO JUMP TO CAM)</span></div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <div class="cam-input-label" style="margin:0;white-space:nowrap;">HOLD FOR</div>
+          <input class="cam-input-field" id="kbd-cam-hold" type="number" min="1" max="120"
+                 style="width:64px;padding:6px 8px;" value="8"/>
+          <div class="cam-input-label" style="margin:0;">SEC THEN RESUME</div>
+        </div>
+      </div>
+      <div id="cam-inputs-list" class="cam-input-row">
+        <!-- dynamically generated -->
+      </div>
+      <button class="cam-add-btn" onclick="addCamInput()">+ ADD CAMERA</button>
+      <div class="cam-btn-row">
+        <button class="cam-detect-btn" onclick="autoDetectCams()">AUTO-DETECT</button>
+        <button class="cam-save-btn" onclick="saveCamSettings()">SAVE</button>
+      </div>
+      <div class="cam-hint" id="cam-hint">Camera IDs change each KSP restart. Click AUTO-DETECT to find them automatically, or enter the IDs manually from the JRTI page at localhost:8080.</div>
+    </div>
+  </div>
+
+  <!-- ── Top bar ───────────────────────────────────────────────────────── -->
+  <div class="top-bar">
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="top-right-strip">
+      <button class="icon-btn" onclick="openCamSettings()" title="Camera Settings">⚙</button>
+      <button class="rec-btn clean-btn" id="clean-btn" onclick="toggleCleanMode()" title="Toggle Clean View"><div class="rec-dot"></div>VIEW</button>
+      <button class="rec-btn" id="rec-btn" onclick="toggleRecording()">
+        <div class="rec-dot"></div>REC
+      </button>
+      <span class="rec-timer" id="rec-timer">—</span>
+    </div>
+  </div>
+
+  <!-- ── Throttle (left side) ──────────────────────────────────────────── -->
+  <div class="throttle-wrap">
+    <div class="throttle-label">THR</div>
+    <div class="throttle-track">
+      <div class="throttle-fill" id="throttle-fill" style="height:0%"></div>
+    </div>
+    <div class="throttle-pct" id="throttle-pct">0%</div>
+  </div>
+
+  <!-- ── Warp rate (below throttle) ──────────────────────────────────── -->
+  <div class="warp-badge" id="warp-badge">
+    <div class="telem-label">RATE</div>
+    <div class="warp-value" id="warp-rate">1.00×</div>
+  </div>
+
+  <!-- ── Clean-mode warp rate chip ────────────────────────────────────── -->
+  <div class="clean-rate" id="clean-rate">1.00×</div>
+
+  <!-- ── TWR (right side mid) ──────────────────────────────────────────── -->
+  <div class="twr-badge">
+    <div class="telem-label">TWR</div>
+    <div class="telem-value" id="twr">—</div>
+  </div>
+
+  <!-- ── Event banner ──────────────────────────────────────────────────── -->
+  <div class="event-banner" id="event-banner">
+    <div class="event-banner-label" id="event-banner-label"></div>
+    <div class="event-banner-time" id="event-banner-time"></div>
+  </div>
+
+  <!-- ── Camera switcher ───────────────────────────────────────────────── -->
+  <div class="cam-switcher-wrap" id="cam-switcher-wrap">
+    <button class="auto-scroll-toggle" id="auto-scroll-toggle" onclick="liveToggleAutoScroll()">AUTO</button>
+    <div class="cam-switcher" id="cam-switcher">
+      <!-- dynamically populated by JS -->
+    </div>
+  </div>
+
+  <!-- ── Bottom telemetry bar ──────────────────────────────────────────── -->
+  <div class="telem-bar">
+    <div class="telem-row">
+
+      <div class="telem-left">
+        <div class="telem-block" style="align-items:center;">
+          <div class="telem-label">Speed</div>
+          <canvas id="gauge-speed" style="width:140px;height:140px;"></canvas>
+        </div>
+        <div class="telem-block" style="align-items:center;">
+          <div class="telem-label">Altitude</div>
+          <canvas id="gauge-alt" style="width:140px;height:140px;"></canvas>
+        </div>
+      </div>
+
+      <div class="telem-center">
+        <div class="mission-name" id="bottom-clock">T+00:00:00</div>
+        <div class="vessel-sub" id="vessel-name">———</div>
+      </div>
+
+      <div class="telem-right">
+        <div class="telem-block" style="align-items:center; justify-content:flex-end;">
+          <canvas id="engine-indicator"></canvas>
+        </div>
+        <div class="telem-block">
+          <div class="telem-label">Apoapsis</div>
+          <div class="telem-value" id="apoapsis">—</div>
+          <div class="telem-unit">KM</div>
+        </div>
+        <div class="telem-block">
+          <div class="telem-label">Periapsis</div>
+          <div class="telem-value" id="periapsis">—</div>
+          <div class="telem-unit">KM</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+const socket = io('http://localhost:5000');
+
+let CAMS      = [];
+let CAM_IDS   = [];
+let activeCam = 0;
+let camLayout  = parseInt(localStorage.getItem('krpc_cam_layout') || '1');
+let speedMode  = localStorage.getItem('krpc_speed_mode') || 'stock';
+
+function setSpeedMode(mode) {
+  speedMode = mode;
+  localStorage.setItem('krpc_speed_mode', mode);
+  document.querySelectorAll('.layout-btn[data-mode]').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+
+function snapshotUrl(id) { return `http://localhost:8080/camera/${id}/snapshot?t=${Date.now()}`; }
+function streamUrl(id)   { return `http://localhost:8080/camera/${id}/stream`; }
+
+/* ── Per-cell LOS pollers (snapshot only for LOS detection, stream for video) */
+const cellPollers = {};
+
+function stopAllPollers() {
+  Object.values(cellPollers).forEach(t => clearInterval(t));
+  Object.keys(cellPollers).forEach(k => delete cellPollers[k]);
+}
+
+function startCellPoller(index, camId) {
+  if (!camId) { showCellLos(index, true); return; }
+
+  // Set MJPEG stream as the live feed immediately
+  const img = document.getElementById(`feed-img-${index}`);
+  if (img) img.src = streamUrl(camId);
+
+  // Poll snapshot every 3s just to detect LOS — don't update the img src
+  function checkLos() {
+    const probe = new Image();
+    probe.onload  = () => showCellLos(index, false);
+    probe.onerror = () => showCellLos(index, true);
+    probe.src = snapshotUrl(camId);
+  }
+
+  checkLos();
+  cellPollers[index] = setInterval(checkLos, 3000);
+}
+
+function showCellLos(index, isLos) {
+  const los  = document.getElementById(`feed-los-${index}`);
+  const live = document.getElementById(`feed-live-${index}`);
+  if (los)  los.classList.toggle('hidden', !isLos);
+  if (live) live.classList.toggle('hidden', isLos);
+}
+
+function liveCams() {
+  // Returns CAMS filtered to those not currently LOS
+  return CAMS.filter(c => c.id && !camLosMap[c.id]);
+}
+
+function buildFeedGrid() {
+  stopAllPollers();
+  const grid = document.getElementById('feed-grid');
+  grid.innerHTML = '';
+
+  if (camLayout === 1) {
+    // Single cam — always respect activeCam, NO SIGNAL overlay handles LOS visually
+    const cam = CAMS[activeCam] || null;
+    grid.className = 'feed-grid layout-1';
+    const cell = document.createElement('div');
+    cell.className = 'feed-cell';
+    cell.innerHTML = `
+      <img id="feed-img-0" src="" alt="">
+      <div class="feed-cell-los hidden" id="feed-los-0">NO SIGNAL</div>
+      <div class="feed-cell-live hidden" id="feed-live-0"></div>
+      <div class="feed-cell-label">${cam ? (cam.name || 'CAM 1') : ''}</div>`;
+    grid.appendChild(cell);
+    startCellPoller(0, cam ? cam.id : null);
+  } else {
+    // Multi-cam — collect live slot-assigned cams, reflow to nearest layout
+    const slotCams = [];
+    for (let slot = 1; slot <= camLayout; slot++) {
+      const cam = CAMS.find(c => c.slot === slot);
+      if (cam && !camLosMap[cam.id]) slotCams.push(cam);
+    }
+    const count       = slotCams.length;
+    const effectiveL  = count <= 1 ? 1 : count === 2 ? 2 : count === 3 ? 3 : 4;
+    grid.className    = 'feed-grid layout-' + effectiveL;
+
+    slotCams.forEach((cam, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'feed-cell';
+      cell.innerHTML = `
+        <img id="feed-img-${i}" src="" alt="">
+        <div class="feed-cell-los hidden" id="feed-los-${i}">NO SIGNAL</div>
+        <div class="feed-cell-live hidden" id="feed-live-${i}"></div>
+        <div class="feed-cell-label">${cam.name || 'CAM ' + (i + 1)}</div>`;
+      grid.appendChild(cell);
+      startCellPoller(i, cam.id);
+    });
+
+    // If all cams dead, show empty black grid
+    if (count === 0) grid.className = 'feed-grid layout-1';
+  }
+
+  // Hide side switcher in multi-cam mode
+  document.getElementById('cam-switcher-wrap').style.display = camLayout > 1 ? 'none' : '';
+}
+
+function buildCamSwitcher() {
+  const container = document.getElementById('cam-switcher');
+  container.innerHTML = '';
+  CAMS.forEach((cam, i) => {
+    if (!cam.id) return;          // skip unconfigured slots
+    if (camLosMap[cam.id]) return; // hide LOS cams entirely
+    const btn = document.createElement('div');
+    btn.className = 'cam-btn' + (i === activeCam ? ' active' : '');
+    btn.id = 'cam-btn-' + i;
+    btn.onclick = () => switchCam(i);
+    btn.innerHTML = `<div class="cam-btn-label">${cam.name || 'CAM ' + (i + 1)}</div>`;
+    container.appendChild(btn);
+  });
+}
+
+function applyCams(cams) {
+  CAMS = cams;
+  CAM_IDS = cams.map(c => c.id);
+  if (activeCam >= CAMS.length) activeCam = 0;
+  buildCamSwitcher();
+  buildFeedGrid();
+  startAutoScroll();
+}
+
+function switchCam(idx) {
+  if (idx === activeCam || camLayout > 1) return;
+  activeCam = idx;
+  if (cellPollers[0]) clearInterval(cellPollers[0]);
+  delete cellPollers[0];
+  startCellPoller(0, CAMS[activeCam] ? CAMS[activeCam].id : null);
+  document.querySelectorAll('.cam-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === activeCam);
+  });
+}
+
+function setLayout(n) {
+  camLayout = n;
+  localStorage.setItem('krpc_cam_layout', n);
+  buildFeedGrid();
+  document.querySelectorAll('.layout-btn[data-layout]').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.layout) === n);
+  });
+  // Auto-scroll only runs in 1-cam mode
+  n === 1 ? startAutoScroll() : stopAutoScroll();
+}
+
+/* ── Keyboard cam select ─────────────────────────────────────────────────── */
+let kbdCamHold  = parseInt(localStorage.getItem('krpc_kbd_cam_hold') || '8');
+let kbdCamTimer = null;
+
+function manualCamSelect(idx) {
+  if (camLayout !== 1) return;
+  if (idx >= CAMS.length) return;
+  if (!CAMS[idx] || !CAMS[idx].id) return;  // skip unconfigured cam slots
+
+  // Cancel any pending resume
+  if (kbdCamTimer) { clearTimeout(kbdCamTimer); kbdCamTimer = null; }
+
+  stopAutoScroll();
+
+  // Force switch even if already on this cam (re-seats the poller)
+  activeCam = idx;
+  if (cellPollers[0]) clearInterval(cellPollers[0]);
+  delete cellPollers[0];
+  startCellPoller(0, CAMS[activeCam].id);
+  document.querySelectorAll('.cam-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === activeCam);
+  });
+
+  kbdCamTimer = setTimeout(() => {
+    kbdCamTimer = null;
+    if (autoScrollEnabled) startAutoScroll();
+  }, kbdCamHold * 1000);
+}
+
+document.addEventListener('keydown', e => {
+  // Don't capture keys when settings overlay is open or typing in an input
+  if (!document.getElementById('cam-overlay').classList.contains('hidden')) return;
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  const num = parseInt(e.key);
+  if (num >= 1 && num <= 9) manualCamSelect(num - 1);
+});
+
+/* ── Auto-scroll ─────────────────────────────────────────────────────────── */
+let autoScrollEnabled = localStorage.getItem('krpc_autoscroll') === 'on';
+let autoScrollSecs    = parseInt(localStorage.getItem('krpc_autoscroll_secs') || '10');
+let autoScrollTimer   = null;
+let autoScrollPos     = 0;       // position within rotation array
+const camLosMap       = {};      // {camId: boolean} — true = LOS
+const bgLosPollers    = {};      // {camId: intervalId}
+
+function syncAutoScrollUI() {
+  document.querySelectorAll('.layout-btn[data-autoscroll]').forEach(b => {
+    b.classList.toggle('active', (b.dataset.autoscroll === 'on') === autoScrollEnabled);
+  });
+  document.getElementById('auto-scroll-toggle')?.classList.toggle('active', autoScrollEnabled);
+}
+
+function setAutoScrollMode(enabled) {
+  autoScrollEnabled = enabled;
+  syncAutoScrollUI();
+}
+
+function liveToggleAutoScroll() {
+  autoScrollEnabled = !autoScrollEnabled;
+  localStorage.setItem('krpc_autoscroll', autoScrollEnabled ? 'on' : 'off');
+  syncAutoScrollUI();
+  autoScrollEnabled ? startAutoScroll() : stopAutoScroll();
+}
+
+function getScrollRotation() {
+  return CAMS.filter(c => c.auto !== false && c.id);
+}
+
+function startAutoScroll() {
+  stopAutoScroll();
+  if (!autoScrollEnabled || camLayout > 1 || getScrollRotation().length < 2) return;
+  // Sync scroll position to whichever cam is currently showing
+  const rotation = getScrollRotation();
+  const rotIdx = rotation.indexOf(CAMS[activeCam]);
+  if (rotIdx !== -1) autoScrollPos = rotIdx;
+  startBgLosPollers();
+  scheduleScrollStep();
+}
+
+function stopAutoScroll() {
+  if (autoScrollTimer) { clearTimeout(autoScrollTimer); autoScrollTimer = null; }
+  stopBgLosPollers();
+}
+
+function scheduleScrollStep() {
+  autoScrollTimer = setTimeout(doScrollStep, autoScrollSecs * 1000);
+}
+
+function doScrollStep() {
+  const rotation = getScrollRotation();
+  if (rotation.length < 2) { scheduleScrollStep(); return; }
+
+  // Advance, skipping LOS cams (try each once before giving up)
+  let tried = 0;
+  do {
+    autoScrollPos = (autoScrollPos + 1) % rotation.length;
+    tried++;
+  } while (tried < rotation.length && camLosMap[rotation[autoScrollPos].id]);
+
+  const cam    = rotation[autoScrollPos];
+  const camIdx = CAMS.indexOf(cam);
+  if (camIdx !== -1) switchCam(camIdx);
+  scheduleScrollStep();
+}
+
+function startBgLosPollers() {
+  stopBgLosPollers();
+  getScrollRotation().forEach(cam => {
+    probeCamLos(cam.id);
+    bgLosPollers[cam.id] = setInterval(() => probeCamLos(cam.id), 5000);
+  });
+}
+
+function stopBgLosPollers() {
+  Object.values(bgLosPollers).forEach(t => clearInterval(t));
+  Object.keys(bgLosPollers).forEach(k => delete bgLosPollers[k]);
+}
+
+function probeCamLos(camId) {
+  const probe = new Image();
+  probe.onload  = () => {
+    const changed = camLosMap[camId] !== false;
+    camLosMap[camId] = false;
+    if (changed) { buildCamSwitcher(); if (camLayout > 1) buildFeedGrid(); }
+  };
+  probe.onerror = () => {
+    const changed = camLosMap[camId] !== true;
+    camLosMap[camId] = true;
+    if (changed) { buildCamSwitcher(); if (camLayout > 1) buildFeedGrid(); }
+  };
+  probe.src = snapshotUrl(camId);
+}
+
+/* ── Camera settings ─────────────────────────────────────────────────────── */
+function slotOptions(selected) {
+  return [['0','—'],['1','S1'],['2','S2'],['3','S3'],['4','S4']]
+    .map(([v,l]) => `<option value="${v}"${parseInt(selected)===parseInt(v)?' selected':''}>${l}</option>`)
+    .join('');
+}
+
+function buildInputRow(cam, index) {
+  const row = document.createElement('div');
+  row.className = 'cam-input-row-item';
+  const autoActive = cam.auto !== false; // default true
+  row.innerHTML = `
+    <div class="cam-input-label">CAMERA ${index + 1}</div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <input class="cam-input-field cam-name-input" type="text"
+             value="${cam.name || ''}" placeholder="Name" style="flex:1;min-width:0;"/>
+      <input class="cam-input-field cam-id-input" type="text"
+             value="${cam.id || ''}" placeholder="ID" style="flex:1;min-width:0;"/>
+      <select class="cam-slot-select cam-slot-input">${slotOptions(cam.slot || 0)}</select>
+      <button class="cam-auto-btn${autoActive ? ' active' : ''}"
+              onclick="this.classList.toggle('active')" title="Include in auto-scroll">A</button>
+      <button class="cam-remove-btn" onclick="removeCamInput(this)" title="Remove">×</button>
+    </div>`;
+  return row;
+}
+
+function renumberInputs() {
+  document.querySelectorAll('.cam-input-row-item').forEach((row, i) => {
+    row.querySelector('.cam-input-label').textContent = `CAMERA ${i + 1}`;
+  });
+}
+
+function addCamInput() {
+  const list  = document.getElementById('cam-inputs-list');
+  const count = list.querySelectorAll('.cam-input-row-item').length;
+  list.appendChild(buildInputRow({name:'', id:'', slot:0}, count));
+}
+
+function removeCamInput(btn) {
+  const list = document.getElementById('cam-inputs-list');
+  if (list.querySelectorAll('.cam-input-row-item').length <= 1) return;
+  btn.closest('.cam-input-row-item').remove();
+  renumberInputs();
+}
+
+function loadSavedCams() {
+  const saved = JSON.parse(localStorage.getItem('krpc_cams') || 'null');
+  if (saved) return saved;
+  // Migrate old format
+  const oldIds = JSON.parse(localStorage.getItem('krpc_cam_ids') || 'null');
+  if (oldIds && oldIds.length) {
+    return oldIds.map((id, i) => ({ name: 'CAM ' + (i + 1), id, slot: i + 1, auto: true }));
+  }
+  return null;
+}
+
+function openCamSettings() {
+  const cams = loadSavedCams() || [{name:'',id:'',slot:1},{name:'',id:'',slot:2},{name:'',id:'',slot:0}];
+  const list  = document.getElementById('cam-inputs-list');
+  list.innerHTML = '';
+  cams.forEach((cam, i) => list.appendChild(buildInputRow(cam, i)));
+  document.getElementById('cam-hint').textContent =
+    'Camera IDs change each KSP restart. Click AUTO-DETECT to find them, or enter manually from localhost:8080. Set slot to assign cams to multi-cam views.';
+  document.querySelectorAll('.layout-btn[data-layout]').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.layout) === camLayout);
+  });
+  document.querySelectorAll('.layout-btn[data-mode]').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === speedMode);
+  });
+  document.querySelectorAll('.layout-btn[data-autoscroll]').forEach(b => {
+    b.classList.toggle('active', (b.dataset.autoscroll === 'on') === autoScrollEnabled);
+  });
+  const secsEl = document.getElementById('autoscroll-secs');
+  if (secsEl) secsEl.value = autoScrollSecs;
+  const kbdEl = document.getElementById('kbd-cam-hold');
+  if (kbdEl) kbdEl.value = kbdCamHold;
+  document.getElementById('cam-overlay').classList.remove('hidden');
+}
+
+function saveCamSettings() {
+  const rows = document.querySelectorAll('.cam-input-row-item');
+  const cams = [];
+  rows.forEach(row => {
+    const id   = row.querySelector('.cam-id-input').value.trim();
+    const name = row.querySelector('.cam-name-input').value.trim();
+    const slot = parseInt(row.querySelector('.cam-slot-input').value) || 0;
+    const auto = row.querySelector('.cam-auto-btn').classList.contains('active');
+    if (id) cams.push({ name, id, slot, auto });
+  });
+  if (cams.length === 0) {
+    document.getElementById('cam-hint').textContent = '⚠  Enter at least one camera ID before saving.';
+    return;
+  }
+  // Save autoscroll settings
+  const secsEl = document.getElementById('autoscroll-secs');
+  autoScrollSecs = Math.max(3, parseInt(secsEl?.value) || 10);
+  // Save keyboard cam hold duration
+  kbdCamHold = Math.max(1, parseInt(document.getElementById('kbd-cam-hold')?.value) || 8);
+  localStorage.setItem('krpc_kbd_cam_hold', kbdCamHold);
+
+  localStorage.setItem('krpc_cams', JSON.stringify(cams));
+  localStorage.setItem('krpc_autoscroll_secs', autoScrollSecs);
+  localStorage.setItem('krpc_autoscroll', autoScrollEnabled ? 'on' : 'off');
+  localStorage.removeItem('krpc_cam_ids');
+  applyCams(cams);
+  document.getElementById('cam-overlay').classList.add('hidden');
+}
+
+
+async function autoDetectCams() {
+  const btn = document.querySelector('.cam-detect-btn');
+  btn.textContent = 'DETECTING…';
+  btn.disabled = true;
+  btn.style.opacity = '0.5';
+  document.getElementById('cam-hint').textContent = 'Contacting JRTI…';
+  try {
+    const resp = await fetch('/api/cameras');
+    const data = await resp.json();
+    if (data.cameras && data.cameras.length >= 1) {
+      const list = document.getElementById('cam-inputs-list');
+      list.innerHTML = '';
+      data.cameras.forEach((cam, i) => list.appendChild(buildInputRow({
+        name: cam.name || ('CAM ' + (i + 1)),
+        id:   cam.id,
+        slot: i < 4 ? i + 1 : 0,
+        auto: true,
+      }, i)));
+      document.getElementById('cam-hint').textContent =
+        `✓ Found ${data.cameras.length} camera(s). Set names/slots then click SAVE.`;
+    } else {
+      document.getElementById('cam-hint').textContent =
+        'No cameras found. Is JRTI running and are HullCams activated in-game?';
+    }
+  } catch (e) {
+    document.getElementById('cam-hint').textContent =
+      'Auto-detect failed — is the dashboard server running?';
+  } finally {
+    btn.textContent = 'AUTO-DETECT';
+    btn.disabled = false;
+    btn.style.opacity = '';
+  }
+}
+
+window.addEventListener('load', () => {
+  syncAutoScrollUI();
+  const cams = loadSavedCams();
+  if (cams && cams.length > 0) {
+    applyCams(cams);
+  } else {
+    openCamSettings();
+  }
+});
+
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+function fmtTime(s) {
+  const neg = s < 0; s = Math.abs(s);
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = Math.floor(s%60);
+  return (neg?'-':'') + String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+function fmtTimeShort(s) {
+  s = Math.abs(s);
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+function set(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+/* ── Circular gauge drawing ──────────────────────────────────────────────────── */
+function drawGauge(canvasId, value, maxValue, unit, fixed = 0) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr  = window.devicePixelRatio || 1;
+  const SIZE = 140;
+  canvas.width        = SIZE * dpr;
+  canvas.height       = SIZE * dpr;
+  canvas.style.width  = SIZE + 'px';
+  canvas.style.height = SIZE + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, SIZE, SIZE);
+
+  const cx         = SIZE / 2;
+  const cy         = SIZE / 2;
+  const r          = 60;
+  const startAngle = Math.PI * 0.75;
+  const sweepAngle = Math.PI * 1.5;
+  const pct        = Math.min(1, Math.max(0, value / maxValue));
+
+  // Track
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, startAngle + sweepAngle);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth   = 2.5;
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+
+  // Fill
+  if (pct > 0.003) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, startAngle + sweepAngle * pct);
+    ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = 'round';
+    ctx.shadowColor = 'rgba(255,255,255,0.4)';
+    ctx.shadowBlur  = 6;
+    ctx.stroke();
+    ctx.shadowBlur  = 0;
+  }
+
+  // Number
+  const display = fixed > 0 ? value.toFixed(fixed) : Math.round(value).toLocaleString();
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `300 ${display.length > 5 ? '26' : display.length > 4 ? '30' : '38'}px Barlow Condensed, sans-serif`;
+  ctx.fillStyle    = 'rgba(255,255,255,0.95)';
+  ctx.fillText(display, cx, cy - 7);
+
+  // Unit
+  ctx.font      = '600 9px Barlow Condensed, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.38)';
+  ctx.fillText(unit, cx, cy + 14);
+}
+
+/* ── Engine panel: fuel arc (outer) + engine dots (inner), one canvas ───────── */
+function drawEnginePanel(canvasId, engines, fuelPct) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const dpr  = window.devicePixelRatio || 1;
+  const SIZE = 95;
+  canvas.width        = SIZE * dpr;
+  canvas.height       = SIZE * dpr;
+  canvas.style.width  = SIZE + 'px';
+  canvas.style.height = SIZE + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, SIZE, SIZE);
+
+  const cx = SIZE / 2, cy = SIZE / 2;
+
+  // ── Fuel arc (outer ring) ────────────────────────────────────────────────
+  const arcR       = 40;
+  const startAngle = Math.PI * 0.75;
+  const sweepAngle = Math.PI * 1.5;
+  const pct        = Math.min(1, Math.max(0, fuelPct / 100));
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, arcR, startAngle, startAngle + sweepAngle);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth   = 2;
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+
+  if (pct > 0.003) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, arcR, startAngle, startAngle + sweepAngle * pct);
+    ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+    ctx.lineWidth   = 2;
+    ctx.lineCap     = 'round';
+    ctx.shadowColor = 'rgba(255,255,255,0.4)';
+    ctx.shadowBlur  = 5;
+    ctx.stroke();
+    ctx.shadowBlur  = 0;
+  }
+
+  // ── Engine dots (inner area, comfortably inside the arc) ─────────────────
+  if (!engines || engines.length === 0) return;
+
+  const maxR = engines.reduce((m, e) => Math.max(m, Math.hypot(e.x, e.z)), 0) || 1;
+  const scale = (SIZE * 0.30) / maxR;   // keep dots well inside the fuel arc
+  const dotR  = engines.length === 1 ? 8 : engines.length <= 4 ? 6 : 4.5;
+
+  engines.forEach(eng => {
+    const sx = cx + eng.x * scale;
+    const sy = cy + eng.z * scale;
+
+    if (eng.firing) {
+      const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, dotR * 2.8);
+      grad.addColorStop(0, 'rgba(255,255,255,0.30)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.beginPath();
+      ctx.arc(sx, sy, dotR * 2.8, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+      ctx.fillStyle   = 'rgba(255,255,255,0.95)';
+      ctx.shadowColor = 'rgba(255,255,255,0.8)';
+      ctx.shadowBlur  = 8;
+      ctx.fill();
+      ctx.shadowBlur  = 0;
+    } else {
+      ctx.beginPath();
+      ctx.arc(sx, sy, dotR, 0, Math.PI * 2);
+      ctx.fillStyle   = 'rgba(255,255,255,0.07)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    }
+  });
+}
+
+/* ── OBS / Recording ─────────────────────────────────────────────────────────── */
+let obsRecording  = false;
+let obsConnected  = false;
+let obsRecDurS    = 0;
+let cleanMode     = false;
+
+function fmtRecTime(s) {
+  s = Math.floor(s);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+async function pollObsStatus() {
+  try {
+    const r = await fetch('/api/obs/status');
+    const d = await r.json();
+    obsConnected = d.connected;
+    obsRecording = d.recording;
+    obsRecDurS   = d.duration_s || 0;
+
+    document.body.classList.toggle('recording-clean', obsRecording || cleanMode);
+    document.getElementById('rec-btn')?.classList.toggle('active', obsRecording);
+    const timer = document.getElementById('rec-timer');
+    if (timer) {
+      timer.textContent = obsRecording ? fmtRecTime(obsRecDurS) : '—';
+      timer.classList.toggle('active', obsRecording);
+    }
+  } catch(e) {
+    obsConnected = false;
+    obsRecording = false;
+    document.body.classList.toggle('recording-clean', cleanMode);
+  }
+}
+
+// Poll OBS every 2s while recording for timer, every 5s otherwise
+let _obsPollInt = null;
+function _scheduleObsPoll() {
+  if (_obsPollInt) clearInterval(_obsPollInt);
+  _obsPollInt = setInterval(pollObsStatus, obsRecording ? 2000 : 5000);
+}
+pollObsStatus().then(_scheduleObsPoll);
+
+async function toggleRecording() {
+  const r = await fetch('/api/obs/toggle', { method: 'POST' });
+  const d = await r.json();
+  if (!d.ok) {
+    showCallout('OBS NOT CONNECTED', '', 2000);
+    return;
+  }
+  // Re-poll quickly to get updated state
+  setTimeout(async () => { await pollObsStatus(); _scheduleObsPoll(); }, 400);
+}
+
+function toggleCleanMode() {
+  cleanMode = !cleanMode;
+  document.body.classList.toggle('recording-clean', obsRecording || cleanMode);
+  document.getElementById('clean-btn')?.classList.toggle('active', cleanMode);
+}
+
+/* ── Event banner system ─────────────────────────────────────────────────────── */
+let bannerTimer = null;
+
+function showCallout(text, cls, duration = 3500) {
+  const banner = document.getElementById('event-banner');
+  const label  = document.getElementById('event-banner-label');
+  const time   = document.getElementById('event-banner-time');
+
+  if (bannerTimer) clearTimeout(bannerTimer);
+
+  label.textContent = text;
+  label.className   = 'event-banner-label' + (cls ? ' ' + cls : '');
+  time.textContent  = 'T+' + fmtTime(lastMissionTime);
+  banner.classList.add('show');
+
+  bannerTimer = setTimeout(() => { banner.classList.remove('show'); }, duration);
+}
+
+/* ── Event detection state ───────────────────────────────────────────────────── */
+let lastMissionTime = 0;
+let peakQ          = 0;
+let liftoffFired   = false;
+let maxQFired      = false;
+let mecoDone       = false;
+let stageSepDone   = false;
+let ses1Done       = false;
+let secoDone       = false;
+let orbitDone      = false;
+let lastStage      = null;
+let prevThr        = 0;
+
+/* ── Telemetry ───────────────────────────────────────────────────────────────── */
+socket.on('telemetry', d => {
+  const missionTime = d.mission_time || 0;
+  lastMissionTime = missionTime;
+
+  set('vessel-name',  (d.vessel_name || '———').toUpperCase());
+  set('mission-id',   (d.vessel_name || 'KSP MISSION').toUpperCase());
+  set('top-clock',    'T+' + fmtTime(missionTime));
+  set('bottom-clock', 'T+' + fmtTime(missionTime));
+
+  // Speed — surface speed in km/h
+  set('speed', Math.round((d.speed || 0) * 3.6).toLocaleString());
+
+  // Altitude
+  const alt = d.altitude || 0;
+  if (alt >= 1000) {
+    set('altitude', (alt/1000).toFixed(2));
+    set('alt-unit', 'KM');
+  } else {
+    set('altitude', Math.round(alt));
+    set('alt-unit', 'M');
+  }
+
+  // Vertical speed
+  const vs = d.vertical_speed || 0;
+  set('vspeed', (vs >= 0 ? '+' : '') + Math.round(vs));
+
+  // Orbit
+  set('apoapsis',  ((d.apoapsis||0)/1000).toFixed(1));
+  set('periapsis', ((d.periapsis||0)/1000).toFixed(1));
+
+  // Throttle
+  const thr = Math.min(100, Math.max(0, d.throttle || 0));
+  document.getElementById('throttle-fill').style.height = thr + '%';
+  set('throttle-pct', Math.round(thr) + '%');
+
+  // Fuel gauge — stock uses LiquidFuel/SolidFuel, RP-1 uses LiquidOxygen
+  const fuelPct = Math.min(100, Math.max(0, speedMode === 'rp1' ? (d.fuel_pct_rp1 || 0) : (d.fuel_pct || 0)));
+
+  // TWR
+  set('twr', (d.twr || 0).toFixed(2));
+
+  // Warp rate
+  const warpRate = d.warp_rate || 1.0;
+  const warpStr  = warpRate.toFixed(2) + '×';
+  const lagging  = warpRate < 0.95;
+  set('warp-rate', warpStr);
+  document.getElementById('warp-badge')?.classList.toggle('lagging', lagging);
+  const cleanRate = document.getElementById('clean-rate');
+  if (cleanRate) { cleanRate.textContent = warpStr; cleanRate.classList.toggle('lagging', lagging); }
+
+  // Stage
+  const stage = d.current_stage;
+  set('stage', stage || '—');
+
+  /* ── Event detection ─────────────────────────────────────────────────────── */
+  const ap = d.apoapsis  || 0;
+  const pe = d.periapsis || 0;
+  const q  = d.dynamic_pressure || 0;
+
+  // LIFTOFF
+  if (!liftoffFired && thr > 30 && alt > 20) {
+    liftoffFired = true;
+    showCallout('LIFTOFF', '', 2500);
+  }
+
+  // MAX-Q — peak dynamic pressure detection
+  if (q > peakQ) peakQ = q;
+  if (liftoffFired && !maxQFired && peakQ > 5000 && q < peakQ * 0.92 && alt > 5000) {
+    maxQFired = true;
+    showCallout('MAX-Q', 'maxq', 3500);
+  }
+  if (alt < 100) { peakQ = 0; maxQFired = false; }
+
+  // BOOSTER SEP — stage drops while throttle is still high AND we're airborne
+  if (liftoffFired && !mecoDone && lastStage !== null && stage < lastStage && thr > 30 && alt > 500) {
+    showCallout('BOOSTER SEP', '', 2500);
+  }
+
+  // MECO — throttle drops from high to near-zero at altitude with good apoapsis
+  if (liftoffFired && !mecoDone && prevThr > 20 && thr < 5 && alt > 20000 && ap > 40000) {
+    mecoDone = true;
+    showCallout('MECO', '', 3500);
+  }
+
+  // STAGE SEP — stage drops AFTER MECO only
+  if (mecoDone && !stageSepDone && lastStage !== null && stage < lastStage) {
+    stageSepDone = true;
+    showCallout('STAGE SEP', '', 2500);
+  }
+
+  // SES-1 — throttle goes back up AFTER stage sep, high altitude
+  if (stageSepDone && !ses1Done && prevThr < 5 && thr > 30 && alt > 60000) {
+    ses1Done = true;
+    showCallout('SES-1', '', 2500);
+  }
+
+  // SECO — throttle drops again after SES-1
+  if (ses1Done && !secoDone && prevThr > 30 && thr < 5) {
+    secoDone = true;
+    showCallout('SECO', '', 3000);
+  }
+
+  // ORBIT ACHIEVED — periapsis goes positive with good apoapsis
+  if (liftoffFired && !orbitDone && pe > 1000 && ap > 60000) {
+    orbitDone = true;
+    showCallout('ORBIT ACHIEVED', '', 5000);
+  }
+
+  // Reset all flags on pad OR when MET drops (revert to launch detection)
+  const metDropped = missionTime < lastMissionTime - 5;
+  if ((alt < 50 && missionTime < 10) || metDropped) {
+    liftoffFired = false; maxQFired = false; mecoDone = false;
+    stageSepDone = false; ses1Done = false; secoDone = false; orbitDone = false;
+    peakQ = 0; lastStage = null; prevThr = 0;
+  }
+
+  lastStage = stage;
+  prevThr   = thr;
+
+  drawGauge('gauge-speed', (d.speed || 0) * 3.6, speedMode === 'rp1' ? 30000 : 10000, 'KM/H');
+  drawGauge('gauge-alt',   (d.altitude || 0) / 1000, 500,   'KM', 1);
+  drawEnginePanel('engine-indicator', d.engines || [], fuelPct);
+});
+</script>
+</body>
+</html>
