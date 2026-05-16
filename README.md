@@ -106,16 +106,20 @@ python dashboard_server.py --krpc-host 192.168.x.x
 
 When you open the dashboard for the first time, the camera settings overlay will appear automatically.
 
+<img width="182" height="57" alt="Screenshot 2026-05-15 230930" src="https://github.com/user-attachments/assets/df92ad3c-dcc7-4097-83d4-77de7f52dfd5" />
+
 ### Speed Mode
 - **STOCK** — fuel gauge tracks LiquidFuel and SolidFuel
 - **RP-1** — fuel gauge tracks RealFuels propellants based on active engine stage
+
+<img width="315" height="286" alt="Screenshot 2026-05-15 230951" src="https://github.com/user-attachments/assets/70ed7a4e-abd6-411e-940f-bf3b7607cbd0" />
 
 Set this to match your KSP install before launch.
 
 ### Camera Setup (optional)
 Requires JRTI running at `localhost:8080`. Click **AUTO-DETECT** to find available cameras automatically, or enter camera IDs manually. Make sure you start streaming the cameras or else the dashboard will not detect them. Assign cameras to slots for multi-cam layouts. Camera IDs change every KSP restart so you may need to re-detect after relaunching.
 
-<img width="1271" height="585" alt="Screenshot 2026-05-15 011915" src="https://github.com/user-attachments/assets/275544aa-7125-49e6-9fe3-1325b02f6eab" />
+<img width="298" height="152" alt="Screenshot 2026-05-15 230859" src="https://github.com/user-attachments/assets/8a9b0358-992a-4395-b6a7-7086a1144861" />
 
 ### OBS Setup (optional)
 In OBS, go to **Tools → WebSocket Server Settings**, enable the WebSocket server, and set a password. Pass that password to the dashboard with `--obs-password`. The REC button in the top bar will then control OBS recording directly and display the recording timer.
@@ -150,7 +154,7 @@ The fuel gauge automatically detects which of the following are present on the a
 
 ---
 
-<img width="1261" height="576" alt="Screenshot 2026-05-15 012503" src="https://github.com/user-attachments/assets/eea90e79-0b5b-4b45-a7b9-c3f6c32cac75" />
+<img width="1261" height="576" alt="GITHUBB" src="https://github.com/user-attachments/assets/31cad95b-562f-4e03-a585-12d2b29927b4" />
 
 ## License
 
