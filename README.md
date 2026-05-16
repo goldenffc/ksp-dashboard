@@ -60,7 +60,7 @@ Download kRPC and place it in your KSP `GameData` folder. When you launch KSP, a
 ```bash
 git clone https://github.com/YOUR_USERNAME/krpc-mission-control.git
 cd krpc-mission-control
-
+```
 ### 3. Install Python dependencies
 ```bash
 pip install krpc flask flask-socketio requests
