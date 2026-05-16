@@ -76,7 +76,7 @@ pip install obsws-python
 
 ### Basic (local KSP, no OBS)
 ```bash
-python dashboard_server.py  (Make sure you're using the right directory)
+python dashboard_server.py 
 ```
 Then open your browser to:
 ```
