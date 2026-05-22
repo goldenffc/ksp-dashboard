@@ -83,9 +83,11 @@ def telemetry_loop(krpc_host: str):
             s_mass         = conn.add_stream(getattr, vessel, "mass")
             s_avail_thrust = conn.add_stream(getattr, vessel, "available_thrust")
             s_stage        = conn.add_stream(getattr, vessel.control, "current_stage")
-            s_mission_time = conn.add_stream(getattr, vessel, "met")
+            s_mission_time  = conn.add_stream(getattr, vessel, "met")
+            s_orbital_speed = conn.add_stream(getattr, vessel.orbit, "speed")
 
-            g_surface = body.surface_gravity
+            g_surface     = body.surface_gravity
+            body_has_atmo = body.has_atmosphere
 
             last_apoapsis  = 0
             last_periapsis = 0
@@ -131,16 +133,17 @@ def telemetry_loop(krpc_host: str):
 
             def build_flight_streams():
                 """Create (or recreate) body-relative flight streams on SOI change."""
-                nonlocal s_altitude, s_speed, s_dyn_pres
+                nonlocal s_altitude, s_speed, s_dyn_pres, body_has_atmo
                 print(f"[kRPC] Rebuilding flight streams for body: {body.name}")
                 for s in [s_altitude, s_speed, s_dyn_pres]:
                     try: s.remove()
                     except Exception: pass
                 try:
-                    ref        = body.reference_frame
-                    s_altitude = conn.add_stream(getattr, vessel.flight(ref), "mean_altitude")
-                    s_speed    = conn.add_stream(getattr, vessel.flight(ref), "speed")
-                    s_dyn_pres = conn.add_stream(getattr, vessel.flight(ref), "dynamic_pressure")
+                    ref           = body.reference_frame
+                    s_altitude    = conn.add_stream(getattr, vessel.flight(ref), "mean_altitude")
+                    s_speed       = conn.add_stream(getattr, vessel.flight(ref), "speed")
+                    s_dyn_pres    = conn.add_stream(getattr, vessel.flight(ref), "dynamic_pressure")
+                    body_has_atmo = body.has_atmosphere
                     print(f"[kRPC] Flight streams rebuilt OK for {body.name}")
                 except Exception as e:
                     print(f"[kRPC] ERROR rebuilding flight streams: {e}")
@@ -252,12 +255,23 @@ def telemetry_loop(krpc_host: str):
                         pass
 
 
+                # Speed — surface speed in atmosphere, orbital speed in vacuum
+                alt_m = s_altitude()
+                if body_has_atmo:
+                    try:
+                        static_p     = vessel.flight().static_pressure
+                        display_speed = s_speed() if static_p > 100 else s_orbital_speed()
+                    except Exception:
+                        display_speed = s_speed()
+                else:
+                    display_speed = s_speed() if alt_m <= 10000 else s_orbital_speed()
+
                 with telemetry_lock:
                     telemetry.update({
                         "connected":        True,
                         "vessel_name":      vessel.name,
-                        "altitude":         round(s_altitude(), 1),
-                        "speed":            round(s_speed(), 1),
+                        "altitude":         round(alt_m, 1),
+                        "speed":            round(display_speed, 1),
                         "apoapsis":         round(last_apoapsis, 0),
                         "periapsis":        round(last_periapsis, 0),
                         "throttle":         round((s_thrust() / s_avail_thrust() * 100) if s_avail_thrust() > 0 else 0, 1),
