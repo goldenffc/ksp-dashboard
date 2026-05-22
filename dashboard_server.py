@@ -243,12 +243,14 @@ def telemetry_loop(krpc_host: str):
                     rebuild_engine_cache(stage)
 
                 # Engine firing state: only thrust per frame (positions already cached)
+                # Single active engine is always centered regardless of physical position
+                single = len(engine_cache) == 1
                 engines_data = []
                 for ec in engine_cache:
                     try:
                         engines_data.append({
-                            "x": ec["x"],
-                            "z": ec["z"],
+                            "x": 0 if single else ec["x"],
+                            "z": 0 if single else ec["z"],
                             "firing": ec["eng"].thrust > 0,
                         })
                     except Exception:
