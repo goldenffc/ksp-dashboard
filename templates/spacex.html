@@ -850,7 +850,7 @@ function startCellPoller(index, camId) {
 
   // Set MJPEG stream as the live feed immediately
   const img = document.getElementById(`feed-img-${index}`);
-  if (img) img.src = streamUrl(camId);
+  if (img) img.src = streamUrl(camId) + '?t=' + Date.now();
 
   // Poll snapshot every 3s just to detect LOS — don't update the img src
   function checkLos() {
