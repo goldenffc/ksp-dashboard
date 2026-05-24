@@ -11,6 +11,7 @@ A SpaceX-style mission control dashboard for Kerbal Space Program, powered by kR
 This is a browser-based mission control dashboard that connects to KSP via the kRPC mod. It reads live telemetry from your active vessel and displays it in a style inspired by SpaceX's real-world launch broadcasts — complete with speed and altitude gauges, a mission elapsed time clock, engine indicator panel, fuel arc, and automated event banners (LIFTOFF, MAX-Q, MECO, etc.).
 
 It supports both **stock KSP** and **RP-1/RO** installs, with automatic fuel detection for a wide range of real-world propellants.
+<img width="1268" height="584" alt="Screenshot 2026-05-19 184525" src="https://github.com/user-attachments/assets/a12913d9-d915-4198-b8b2-fde8154d6c1f" />
 
 ---
 
